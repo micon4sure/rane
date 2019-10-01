@@ -1,8 +1,13 @@
-import { NEURON_TYPE } from './Neuron'
 import Neuron from './Neuron'
+import { NEURON_TYPE } from './Neuron'
+
 import Connection from './Connection'
+
 import Genome from './Genome';
 import { emptyGenome } from './Genome';
+
+import Trainer from './Trainer'
+
 import * as _ from 'lodash'
 
 
@@ -82,6 +87,10 @@ class Network {
       result.push(neuron.getState())
     })
     return result;
+  }
+
+  train(data, iterations) {
+    Trainer.train(this, data, iterations);
   }
 
   getConfig() { return this.config; }

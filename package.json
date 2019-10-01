@@ -1,0 +1,25 @@
+{
+  "name": "rane",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "jest --coverage",
+    "test:w": "npx jest --watchAll --coverage",
+    "test:d": "npx --node-arg=--inspect jest",
+    "test:wd": "npx --node-arg=--inspect jest --watchAll"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/jest": "^24.0.18",
+    "jest": "^24.9.0",
+    "ts-jest": "^24.1.0"
+  },
+  "dependencies": {
+    "@types/lodash": "^4.14.141",
+    "@types/node": "^12.7.8",
+    "lodash": "^4.17.15",
+    "typescript": "^3.6.3"
+  }
+}

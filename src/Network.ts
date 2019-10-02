@@ -6,6 +6,8 @@ import Connection from './Connection'
 import Genome from './Genome';
 import { emptyGenome } from './Genome';
 
+import Memory from './Memory'
+
 import Trainer from './Trainer'
 
 import * as _ from 'lodash'
@@ -37,8 +39,9 @@ class Network {
     if (genome === null) {
       genome = emptyGenome(config.input, config.output);
     }
+
     // add neurons
-    _.each(genome.neurons, gene => {
+    _.each(genome.nodes, gene => {
       if (!gene.enabled) {
         this.junkGenes.nodes.push(gene);
         return;
@@ -74,12 +77,13 @@ class Network {
   }
 
   activate(pattern: Array<number>) {
+    const memory = new Memory();
     if (pattern.length != this.inputNeurons.length) {
       throw new Error('Invalid pattern supplied.')
     }
 
     _.each(pattern, (activation, i) => {
-      this.inputNeurons[i].activate(activation);
+      this.inputNeurons[i].activate(activation, memory);
     })
 
     const result = [];
@@ -98,12 +102,12 @@ class Network {
   getHiddenNeurons() { return this.hiddenNeurons; }
   getOutputNeurons() { return this.outputNeurons; }
 
-  export() {
+  getGenome(): Genome {
     const genome = new Genome();
 
     // add neurons to genome
     _.each(this.neuronMap, (neuron: Neuron) => {
-      genome.addNodeGene(neuron.getId(), neuron.getType(), neuron.getBias(), (neuron.getSquash() as any).functionName, true)
+      genome.addNeuron(neuron)
     });
     _.each(this.junkGenes.nodes, gene => {
       genome.addNodeGene(gene.id, gene.type, gene.bias, gene.squash, false);
@@ -111,15 +115,17 @@ class Network {
 
     // add connections to genome
     _.each(this.connections, (connection: Connection) => {
-      genome.addConnectionGene(connection.from.getId(), connection.to.getId(), connection.weight, connection.innovation, true);
+      genome.addConnection(connection);
     });
     _.each(this.junkGenes.connections, gene => {
       genome.addConnectionGene(gene.from, gene.to, gene.weight, gene.innovation, false);
     });
-
+    return genome;
+  }
+  export() {
     return {
       config: this.config,
-      genome
+      genome: this.getGenome()
     }
   }
   static fromExport(export_) {

@@ -1,6 +1,7 @@
 import * as _ from 'lodash'
-import Squash from './Squash'
+import Squash from './squash'
 import Connection from './Connection'
+import Memory from './Memory'
 
 export enum NEURON_TYPE {
   input = 'input',
@@ -10,7 +11,7 @@ export enum NEURON_TYPE {
 
 class Neuron {
 
-  private id: string;
+  private id: number;
   private type: NEURON_TYPE;
   private bias: number;
   private squash: Function
@@ -22,7 +23,7 @@ class Neuron {
 
   private activations = 0;
 
-  constructor(id: string, type: NEURON_TYPE, bias: number = null, squash: string = 'logistic') {
+  constructor(id: number, type: NEURON_TYPE, bias: number = null, squash: string = 'sigmoid') {
     this.id = id;
     this.type = type;
     this.squash = Squash[squash];
@@ -37,7 +38,7 @@ class Neuron {
     this.connectionsBackward.push(connection)
   }
 
-  activate(activation: number) {
+  activate(activation: number, memory: Memory) {
     // if there has been no activations in this forward pass, the activation passed here is the initial state
     if (this.activations == 0) {
       this.state = activation;
@@ -47,7 +48,7 @@ class Neuron {
     }
 
     // if all incoming neuron connections have fired
-    if (++this.activations >= this.connectionsForward.length) {
+    if (++this.activations >= this.connectionsBackward.length) {
       // reset the activations counter
       this.activations = 0;
 
@@ -55,7 +56,10 @@ class Neuron {
       const activation = this.getActivation();
       // fire on all outgoing connections
       _.each(this.connectionsForward, connection => {
-        connection.to.activate(activation * connection.weight);
+        if(memory.allowed(connection.innovation)) {
+          connection.to.activate(activation * connection.weight, memory);
+          memory.activated(connection.innovation);
+        }
       })
     }
   }
@@ -66,10 +70,12 @@ class Neuron {
   getSquash() { return this.squash; }
   
   getState() { return this.state; }
-  getActivation() { return this.squash(this.state + this.bias); }
+  getActivation(derivative = false) { return this.squash(this.state + this.bias, derivative); }
 
   getConnectionsForward() { return this.connectionsForward; }
   getConnectionsBackward() { return this.connectionsBackward; }
+
+  setBias(bias) { this.bias = bias; }
 
   toJSON() {
     return {

@@ -18,16 +18,31 @@ test('test train AND', () => {
     { input: [0, 1], output: [0] },
     { input: [1, 0], output: [0] },
     { input: [1, 1], output: [1] }
-  ]
 
-  network.train(AND, 10000);
+  ]
+  //network.train(AND, 10000);
 
 
   _.each(AND, example => {
     const result = network.activate(example.input);
+    //expect(Math.round(result[0])).toEqual(example.output[0]);
+  });
+});
 
-    console.log(example.input, example.output, result)
+test('test train OR', () => {
+  const network = new Network({ input: 2, output: 1, learningRate: 0.001 });
+  const OR = [
+    { input: [0, 0], output: [0] },
+    { input: [0, 1], output: [1] },
+    { input: [1, 0], output: [1] },
+    { input: [1, 1], output: [1] }
+  ]
 
-    //expect(result).toEqual(example.output);
+  //network.train(OR, 10000);
+
+
+  _.each(OR, example => {
+    const result = network.activate(example.input);
+    //expect(Math.round(result[0])).toEqual(example.output[0]);
   });
 });

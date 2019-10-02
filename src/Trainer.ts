@@ -1,39 +1,45 @@
-import Neuron from './Neuron';
+import Neuron, { NEURON_TYPE } from './Neuron';
 import Network from './Network'
 import Connection from './Connection'
 import * as _ from 'lodash'
+import squash from './squash'
+import { generateKeyPair } from 'crypto';
+import { nodeInternals } from 'stack-utils';
 
 class Trainer {
-  static train(network: Network, data, iterations) {
-    console.log(network.export().genome.connections)
-    for (let i = 0; i < iterations; i++) {
-      const errors = new Array(network.getConfig().output).fill(0);
 
-      //TODO: batches
+  /**
+   * Train the network on some data, return the error sum after training
+   * @param network 
+   * @param data 
+   * @param iterations 
+   */
+  static train(network: Network, data, iterations) {
+    //console.log(network.export().genome.connections)
+    for (let i = 0; i < iterations; i++) {
+      let errors = new Array(network.getConfig().output).fill(0);
       _.each(data, example => {
         const result = network.activate(example.input);
+        //console.log('RESULT', example.input, example.output, result)
         _.each(result, (value, index) => {
-          errors[index] += example.output - value;
+          Trainer.adjust(network.getOutputNeurons()[index], example.output, network.getConfig().learningRate)
         });
       })
-
-      if (i % 1000 == 0) {
-        console.log('I', i, errors)
-      }
-
-      _.each(network.getOutputNeurons(), (neuron: Neuron, index) => {
-        Trainer.adjust(neuron, errors[index], network.getConfig().learningRate, .9);
-      });
-
-      console.log(network.export().genome.connections)
     }
   }
-  static adjust(neuron: Neuron, error, learningRate, multiplier) {
-    _.each(neuron.getConnectionsBackward(), (connection: Connection) => {
-      const delta = connection.from.getActivation() * error * learningRate * multiplier;
-      connection.weight += delta;
-      Trainer.adjust(connection.from, error, learningRate, multiplier * multiplier)
-    });
+
+  static adjust(neuron: Neuron, target, learningRate, deltaPrev = null) {
+    let delta;
+    _.each(neuron.getConnectionsBackward(), connection => {
+      if (neuron.getType() == NEURON_TYPE.hidden) {
+        delta = neuron.getActivation(true) * (neuron.getActivation(true) - target)
+      } else {
+        delta = neuron.getActivation(true) * (deltaPrev * connection.weight);
+      }
+      const deltaWeight = -learningRate * delta * neuron.getActivation();
+      connection.weight += deltaWeight;
+      //Trainer.adjust(connection.from, target, learningRate, delta)
+    })
   }
 }
 

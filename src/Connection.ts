@@ -7,6 +7,8 @@ class Connection {
   public weight: number;
   public innovation: number;
 
+  public adjustment: number;
+
   constructor(from: Neuron, to: Neuron, weight:number, innovation: number) {
     this.from = from;
     this.to = to;

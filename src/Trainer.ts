@@ -19,26 +19,28 @@ class Trainer {
     for (let i = 0; i < iterations; i++) {
       let errors = new Array(network.getConfig().output).fill(0);
       _.each(data, example => {
-        const result = network.activate(example.input);
-        //console.log('RESULT', example.input, example.output, result)
+        let result = network.activate(example.input);
+        console.log('RESULT', example, result)
         _.each(result, (value, index) => {
           Trainer.adjust(network.getOutputNeurons()[index], example.output, network.getConfig().learningRate)
         });
+        result = network.activate(example.input);
+        console.log('ADJUSTED', example, result)
       })
     }
   }
 
-  static adjust(neuron: Neuron, target, learningRate, deltaPrev = null) {
-    let delta;
+  static adjust(neuron: Neuron, target, learningRate, errorPrev = null) {
+    let error;
     _.each(neuron.getConnectionsBackward(), connection => {
-      if (neuron.getType() == NEURON_TYPE.hidden) {
-        delta = neuron.getActivation(true) * (neuron.getActivation(true) - target)
+      if (neuron.getType() == NEURON_TYPE.output) {
+        error = neuron.getActivation(true) * (neuron.getActivation(true) - target)
       } else {
-        delta = neuron.getActivation(true) * (deltaPrev * connection.weight);
+        error = neuron.getActivation(true) * (errorPrev * connection.weight);
       }
-      const deltaWeight = -learningRate * delta * neuron.getActivation();
+      const deltaWeight = -learningRate * error * neuron.getActivation();
       connection.weight += deltaWeight;
-      //Trainer.adjust(connection.from, target, learningRate, delta)
+      Trainer.adjust(connection.from, target, learningRate, error)
     })
   }
 }

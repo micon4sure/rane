@@ -22,6 +22,7 @@ class NEAT {
       this.population.push(new Network(networkConfig));
     }
 
+    //TODO: does this work as intended? write test
     this.innovation = networkConfig.input * networkConfig.output;
   }
 

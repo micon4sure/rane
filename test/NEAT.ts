@@ -7,6 +7,8 @@ import Trainer from '../src/Trainer';
 import Genome from '../src/Genome';
 import squash from '../src/squash';
 import * as fs from 'fs';
+import Connection from '../src/Connection';
+import Memory from '../src/Memory';
 
 
 test('testNEAT', () => {
@@ -56,8 +58,25 @@ test('merp', () => {
 
   const createGenomeWithHidden = () => {
     const genome = new Genome();
-    genome.addNodeGene(0, NEURON_TYPE.input, Math.random() * 2 - 1, 'sigmoid', true);
-    genome.addNodeGene(1, NEURON_TYPE.input, Math.random() * 2 - 1, 'sigmoid', true);
+    genome.addNodeGene(0, NEURON_TYPE.input, 0, 'sigmoid', true);
+    genome.addNodeGene(1, NEURON_TYPE.input, 0, 'sigmoid', true);
+    genome.addNodeGene(2, NEURON_TYPE.hidden, Math.random() * 2 - 1, 'sigmoid', true);
+    genome.addNodeGene(3, NEURON_TYPE.hidden, Math.random() * 2 - 1, 'sigmoid', true);
+    genome.addNodeGene(4, NEURON_TYPE.output, Math.random() * 2 - 1, 'sigmoid', true);
+
+    let innovation = 0;
+    genome.addConnectionGene(0, 2, Math.random() * 2 - 1, innovation++, true)
+    genome.addConnectionGene(1, 2, Math.random() * 2 - 1, innovation++, true)
+    genome.addConnectionGene(0, 3, Math.random() * 2 - 1, innovation++, true)
+    genome.addConnectionGene(1, 3, Math.random() * 2 - 1, innovation++, true)
+    genome.addConnectionGene(2, 4, Math.random() * 2 - 1, innovation++, true)
+    genome.addConnectionGene(3, 4, Math.random() * 2 - 1, innovation++, true)
+    return genome;
+  };
+  const createGenomeWithHidden2 = () => {
+    const genome = new Genome();
+    genome.addNodeGene(0, NEURON_TYPE.input, 0, 'sigmoid', true);
+    genome.addNodeGene(1, NEURON_TYPE.input, 0, 'sigmoid', true);
     genome.addNodeGene(2, NEURON_TYPE.hidden, Math.random() * 2 - 1, 'sigmoid', true);
     genome.addNodeGene(3, NEURON_TYPE.hidden, Math.random() * 2 - 1, 'sigmoid', true);
     genome.addNodeGene(4, NEURON_TYPE.hidden, Math.random() * 2 - 1, 'sigmoid', true);
@@ -81,8 +100,8 @@ test('merp', () => {
     const genome = new Genome();
 
     let id = 0;
-    genome.addNodeGene(id++, NEURON_TYPE.input, Math.random() * 2 - 1, 'sigmoid', true);
-    genome.addNodeGene(id++, NEURON_TYPE.input, Math.random() * 2 - 1, 'sigmoid', true);
+    genome.addNodeGene(id++, NEURON_TYPE.input, 0, 'sigmoid', true);
+    genome.addNodeGene(id++, NEURON_TYPE.input, 0, 'sigmoid', true);
     genome.addNodeGene(id++, NEURON_TYPE.output, Math.random() * 2 - 1, 'sigmoid', true);
 
     let innovation = 0;
@@ -108,16 +127,33 @@ test('merp', () => {
     { input: [1, 0], output: [0] },
     { input: [1, 1], output: [1] }
   ]
-  
+
   _.each(XOR, example => {
     const result = network.activate(example.input);
     console.log('XOR', example.input, example.output[0], result[0])
   });
   console.log('##############################')
 
+  let error = 0;
+  for (let i = 0; i < 1; i++) {
 
-  Trainer.train(network, XOR, 1000);
+    _.each(XOR, example => {
+      network.activate(example.input)
+      let memory = new Memory();
+      _.each(example.output, (value, index) => {
+        const neuron = network.getOutputNeurons()[index];
+        const derivativeErrorOutput = -(example.output[index] - neuron.getActivation())
+        neuron.propagate(derivativeErrorOutput, memory);
+      })
 
+      memory = new Memory();
+      _.each(network.getOutputNeurons(), neuron => {
+        neuron.adjust(memory);
+      })
+    })
+  }
+
+  //Port.export(network)
 
   console.log('##############################')
   _.each(XOR, example => {
@@ -126,4 +162,65 @@ test('merp', () => {
   });
 
   Port.export(network)
+});
+
+test('shmerp', () => {
+  const genome = new Genome();
+
+  genome.addNodeGene(0, NEURON_TYPE.input, 0, 'sigmoid', true);
+  genome.addNodeGene(1, NEURON_TYPE.input, 0, 'sigmoid', true);
+  genome.addNodeGene(2, NEURON_TYPE.hidden, .35, 'sigmoid', true);
+  genome.addNodeGene(3, NEURON_TYPE.hidden, .35, 'sigmoid', true);
+  genome.addNodeGene(4, NEURON_TYPE.output, .6, 'sigmoid', true);
+  genome.addNodeGene(5, NEURON_TYPE.output, .6, 'sigmoid', true);
+
+  let innovation = 0;
+  genome.addConnectionGene(0, 2, .15, innovation++, true) // w1
+  genome.addConnectionGene(1, 2, .2, innovation++, true) // w2
+
+  genome.addConnectionGene(0, 3, .25, innovation++, true) // w3
+  genome.addConnectionGene(1, 3, .3, innovation++, true) // w4
+
+  genome.addConnectionGene(2, 4, .4, innovation++, true) // w5
+  genome.addConnectionGene(3, 4, .45, innovation++, true) // w6
+
+  genome.addConnectionGene(2, 5, .5, innovation++, true) // w7
+  genome.addConnectionGene(3, 5, .55, innovation++, true) // w8
+
+  let network = new Network({ input: 2, output: 1, learningRate: .1 }, genome);
+
+  const input = [.05, .1];
+  const output = [.01, .99]
+  //const output = [0, 1]
+
+  let result = network.activate(input);
+
+  let error = 0;
+  _.each(output, (value, index) => {
+    error += .5 * Math.pow(value - result[index], 2)
+  })
+  console.log('BEFORE', { output, result, error });
+
+  for (let i = 0; i < 1; i++) {
+    let memory = new Memory();
+    _.each(output, (value, index) => {
+      const neuron = network.getOutputNeurons()[index];
+      const derivativeErrorOutput = -(output[index] - neuron.getActivation())
+      neuron.propagate(derivativeErrorOutput, memory);
+    })
+
+    memory = new Memory();
+    _.each(network.getOutputNeurons(), neuron => {
+      neuron.adjust(memory);
+    })
+  }
+
+  Port.export(network)
+
+  result = network.activate(input)
+  error = 0;
+  _.each(output, (value, index) => {
+    error += .5 * Math.pow(value - result[index], 2)
+  })
+  console.log('AFTER', { output, result, error });
 });

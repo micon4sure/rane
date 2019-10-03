@@ -88,7 +88,7 @@ class Network {
 
     const result = [];
     _.each(this.outputNeurons, neuron => {
-      result.push(neuron.getState())
+      result.push(neuron.getActivation())
     })
     return result;
   }

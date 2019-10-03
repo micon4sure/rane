@@ -111,7 +111,7 @@ class Neuron {
     _.each(this.getConnectionsBackward(), (connection: Connection) => {
       if(!memory.allowed(connection.innovation)) return;
       const delta = - .5 * connection.adjustment
-      console.log('ADJUSTING', {
+      if(false)console.log('ADJUSTING', {
         innovation: connection.innovation,
         adjustment: connection.adjustment, 
         weight: connection.weight,

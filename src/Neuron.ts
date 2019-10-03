@@ -1,5 +1,5 @@
 import * as _ from 'lodash'
-import Squash from './squash'
+import Squash from './Squash'
 import Connection from './Connection'
 import Memory from './Memory'
 

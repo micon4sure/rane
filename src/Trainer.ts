@@ -2,9 +2,6 @@ import Neuron, { NEURON_TYPE } from './Neuron';
 import Network from './Network'
 import Connection from './Connection'
 import * as _ from 'lodash'
-import squash from './squash'
-import { generateKeyPair } from 'crypto';
-import { nodeInternals } from 'stack-utils';
 
 class Trainer {
 

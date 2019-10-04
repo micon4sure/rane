@@ -6,7 +6,7 @@ class Genome {
   public connections = [];
 
   addNeuron(neuron: Neuron) {
-    this.addNodeGene(neuron.getId(), neuron.getType(), neuron.getBias(), (neuron.getSquash() as any).name);
+    this.nodes.push(neuron.toJSON())
   }
   addNodeGene(id: number, type: NEURON_TYPE, bias: number, squash: string = 'logistic', enabled: boolean = true) {
     this.nodes.push({

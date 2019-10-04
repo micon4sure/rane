@@ -79,25 +79,25 @@ class Neuron {
       _.each(this.getConnectionsBackward(), (connection: Connection) => {
         if (!memory.allowed(connection.innovation)) return;
           // derivative of input to weight
-          const derivativeInputWeight = connection.from.type == 'input' 
-          ?connection.from.getState()
-          :connection.from.getActivation();
+          const derivativeInputWeight = connection.to.getType() == 'output'
+           ? connection.to.getActivation()
+           : connection.to.getState();
 
           // derivative of ideal_output error to delta weight
           const derivativeErrorWeight = this.error * derivativeOutputInput * derivativeInputWeight;
 
           // calculate the delta for the connection
           connection.adjustment = derivativeErrorWeight;
-          //console.log('SETTING', connection.innovation, connection.gnerp, connection.adjustment)
 
-         if(false)console.log({
+          if(connection.innovation == 1)console.log({
             id: this.id,
             connection: connection.innovation,
+            delta: connection.adjustment,
+            type: connection.from.type,
             'derivative error/output': [error, this.error],
             'derivative output/input': derivativeOutputInput,
             'derivative input/weight': derivativeInputWeight,
             'derivative error/weight': derivativeErrorWeight,
-            delta: connection.adjustment
           })
 
           // propagate the error
@@ -111,7 +111,7 @@ class Neuron {
     _.each(this.getConnectionsBackward(), (connection: Connection) => {
       if(!memory.allowed(connection.innovation)) return;
       const delta = - .5 * connection.adjustment
-      if(false)console.log('ADJUSTING', {
+      if(connection.innovation == -1)console.log('ADJUSTING', {
         innovation: connection.innovation,
         adjustment: connection.adjustment, 
         weight: connection.weight,
@@ -144,6 +144,8 @@ class Neuron {
       type: this.type,
       bias: this.bias,
       squash: this.squash,
+      activation: this.getActivation(),
+      state: this.getState(),
       connections: _.map(this.connectionsForward, connection => {
         return {
           id: connection.to.id,

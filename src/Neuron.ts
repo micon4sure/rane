@@ -80,8 +80,8 @@ class Neuron {
         if (!memory.allowed(connection.innovation)) return;
           // derivative of input to weight
           const derivativeInputWeight = connection.to.getType() == 'output'
-           ? connection.to.getActivation()
-           : connection.to.getState();
+           ? connection.from.getActivation()
+           : connection.from.getState();
 
           // derivative of ideal_output error to delta weight
           const derivativeErrorWeight = this.error * derivativeOutputInput * derivativeInputWeight;
@@ -89,8 +89,9 @@ class Neuron {
           // calculate the delta for the connection
           connection.adjustment = derivativeErrorWeight;
 
-          if(connection.innovation == 1)console.log({
+          if(connection.innovation == -1)console.log('CALCULATED', {
             id: this.id,
+
             connection: connection.innovation,
             delta: connection.adjustment,
             type: connection.from.type,
@@ -148,7 +149,7 @@ class Neuron {
       state: this.getState(),
       connections: _.map(this.connectionsForward, connection => {
         return {
-          id: connection.to.id,
+          to: connection.to.id,
           weight: connection.weight
         }
       })

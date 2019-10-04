@@ -16,13 +16,14 @@ class Neuron {
   private bias: number;
   private squash: Function
 
-  private error: number = 0;
+  private partialDerivativeErrorOutConnectedSum = 0;
   private state: number;
 
   private connectionsForward = new Array<Connection>();
   private connectionsBackward = new Array<Connection>();
 
   private activations = 0;
+  private activationValues = {};
   private propagations = 0;
 
   constructor(id: number, type: NEURON_TYPE, bias: number = null, squash: string = 'sigmoid') {
@@ -40,7 +41,9 @@ class Neuron {
     this.connectionsBackward.push(connection)
   }
 
-  activate(activation: number, memory: Memory) {
+  activate(activation: number, memory: Memory, connection: Connection = null) {
+    if(connection !== null)
+      this.activationValues[connection.innovation] = activation;
     // if there has been no activations in this forward pass, the activation passed here is the initial state
     if (this.activations == 0) {
       this.state = activation;
@@ -60,66 +63,66 @@ class Neuron {
       // fire on all outgoing connections
       _.each(this.connectionsForward, (connection: Connection) => {
         if (!memory.allowed(connection.innovation)) return;
-        connection.to.activate(activation * connection.weight, memory);
+        connection.to.activate(activation * connection.weight, memory, connection);
         memory.activated(connection.innovation);
       })
     }
-
   }
 
-  propagate(error, memory: Memory) {
-    this.propagations++;
-    this.error += error;
+  /*
+    ∂Eₜₒₜₐₗ / ∂wᵢⱼ  = ( ∂Eₜₒₜₐₗ / ∂outⱼ ) * ( ∂outⱼ / ∂netⱼ ) * (  ∂netⱼ / ∂wᵢⱼ )
+    
+    ∂Eₜₒₜₐₗ / ∂outⱼ = - ( target - outⱼ)
+    ∂outⱼ / ∂netⱼ = outⱼ (1 - outⱼ)
+    ∂netⱼ / ∂wᵢⱼ  = outᵢ
 
-    // derivative of output to input
-    const derivativeOutputInput = this.getActivation(true)
+    Δw = -η * ∂Eₜₒₜₐₗ / ∂wᵢⱼ
+  */
+  propagateOutput(ideal, learningRate) {
+    const partialDerivativeErrorOut = -(ideal - this.getActivation())
+    const partialDerivativeOutNetinput = this.getActivation() * (1 - this.getActivation());
 
-    if (this.propagations >= this.connectionsForward.length) {
+    _.each(this.connectionsBackward, (connection: Connection) => {
+      const partialDerivativeNetinputWeight = connection.from.getActivation()
+
+      const partialDerivativeErrorWeight = partialDerivativeErrorOut * partialDerivativeOutNetinput * partialDerivativeNetinputWeight;
+      connection.adjustment = -learningRate * partialDerivativeErrorWeight;
+      
+      connection.from.propagateHidden(partialDerivativeErrorOut, connection.weight, learningRate);
+    });
+  }
+
+  /*
+    ∂Eₜₒₜₐₗ / ∂wᵢⱼ  = ( ∂Eₜₒₜₐₗ / ∂outⱼ ) * ( ∂outⱼ / ∂netⱼ ) * (  ∂netⱼ / ∂wᵢⱼ )
+
+    ∂Eₜₒₜₐₗ / ∂outⱼ = Σ [ (∂Eₖ₁ / doutⱼ) + (∂Eₖ₂ / doutⱼ) + ... (∂Eₖₙ / / doutⱼ) ]
+                  -> ∂Eₖ / ∂outⱼ   = ∂Eₖ * / ∂netₖ
+                                                -> ∂netₖ / ∂outⱼ = wᵢⱼ
+    ∂outⱼ / ∂netⱼ = outⱼ (1 - outⱼ)
+    ∂netⱼ / ∂wᵢⱼ  = input from this connection
+
+    Δw = -η * ∂Eₜₒₜₐₗ / ∂wᵢⱼ
+  */
+  propagateHidden(partialDerivativeErrorOutConnected, weight, learningRate) {
+    this.partialDerivativeErrorOutConnectedSum += partialDerivativeErrorOutConnected;
+    if(++this.propagations == this.connectionsForward.length) {
       this.propagations = 0;
-      _.each(this.getConnectionsBackward(), (connection: Connection) => {
-        if (!memory.allowed(connection.innovation)) return;
-          // derivative of input to weight
-          const derivativeInputWeight = connection.to.getType() == 'output'
-           ? connection.from.getActivation()
-           : connection.from.getState();
+      const partialDerivativeOutNetinput = this.getActivation() * (1 - this.getActivation());
+      _.each(this.connectionsBackward, (connection: Connection) => {
+        const partialDerivativeNetinputWeight = this.activationValues[connection.innovation];
 
-          // derivative of ideal_output error to delta weight
-          const derivativeErrorWeight = this.error * derivativeOutputInput * derivativeInputWeight;
-
-          // calculate the delta for the connection
-          connection.adjustment = derivativeErrorWeight;
-
-          if(connection.innovation == -1)console.log('CALCULATED', {
-            id: this.id,
-
-            connection: connection.innovation,
-            delta: connection.adjustment,
-            type: connection.from.type,
-            'derivative error/output': [error, this.error],
-            'derivative output/input': derivativeOutputInput,
-            'derivative input/weight': derivativeInputWeight,
-            'derivative error/weight': derivativeErrorWeight,
-          })
-
-          // propagate the error
-          connection.from.propagate(this.error * derivativeOutputInput * connection.weight, memory);
-          memory.activated(connection.innovation)
-        });
+        const partialDerivativeErrorWeight = this.partialDerivativeErrorOutConnectedSum * partialDerivativeOutNetinput * partialDerivativeNetinputWeight;
+        connection.adjustment = -learningRate * partialDerivativeErrorWeight;
+          
+        connection.from.propagateHidden(this.partialDerivativeErrorOutConnectedSum, connection.weight, learningRate)
+      });
     }
   }
 
   adjust(memory) {
     _.each(this.getConnectionsBackward(), (connection: Connection) => {
-      if(!memory.allowed(connection.innovation)) return;
-      const delta = - .5 * connection.adjustment
-      if(connection.innovation == -1)console.log('ADJUSTING', {
-        innovation: connection.innovation,
-        adjustment: connection.adjustment, 
-        weight: connection.weight,
-        delta,
-        result: connection.weight + delta
-      })
-      connection.weight += delta;
+      if (!memory.allowed(connection.innovation)) return;
+      connection.weight += connection.adjustment;
       connection.adjustment = 0;
       memory.activated(connection.innovation);
       connection.from.adjust(memory)
@@ -147,6 +150,9 @@ class Neuron {
       squash: this.squash,
       activation: this.getActivation(),
       state: this.getState(),
+      activations: this.activations,
+      propagations: this.propagations,
+      enabled: true,
       connections: _.map(this.connectionsForward, connection => {
         return {
           to: connection.to.id,

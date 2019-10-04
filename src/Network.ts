@@ -93,8 +93,16 @@ class Network {
     return result;
   }
 
-  train(data, iterations) {
-    Trainer.train(this, data, iterations);
+  train(example) {
+    this.activate(example.input);
+
+    _.each(this.outputNeurons, (neuron: Neuron, index) => {
+      neuron.propagateOutput(example.output[index], this.config.learningRate);
+    });
+    const memory = new Memory();
+    _.each(this.outputNeurons, (neuron: Neuron, index) => {
+      neuron.adjust(memory);
+    });
   }
 
   getConfig() { return this.config; }

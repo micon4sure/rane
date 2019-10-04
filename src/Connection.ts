@@ -15,6 +15,17 @@ class Connection {
     this.weight = weight;
     this.innovation = innovation;
   }
+
+  toJSON() {
+    return {
+      innovation: this.innovation,
+      from: this.from.getId(),
+      to: this.to.getId(),
+      weight: this.weight,
+      adjustment: this.adjustment,
+      enabled: true
+    }
+  }
 }
 
 export default Connection;

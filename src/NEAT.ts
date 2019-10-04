@@ -144,7 +144,6 @@ class NEAT {
       }
 
       // avoid backwards connection
-
       if(from !== null && to !== null) {
         // avoid self connections
         //TODO: enable self connections but handle them inside neuron

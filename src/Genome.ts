@@ -19,7 +19,7 @@ class Genome {
   }
 
   addConnection(connection: Connection) {
-    this.addConnectionGene(connection.from.getId(), connection.to.getId(), connection.weight, connection.innovation);
+    this.connections.push(connection.toJSON());
   }
   addConnectionGene(from: number, to: number, weight: number, innovation: number, enabled: boolean = true) {
     this.connections.push({

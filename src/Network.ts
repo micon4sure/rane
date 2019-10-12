@@ -1,5 +1,5 @@
-import Neuron from './Neuron'
-import { NEURON_TYPE } from './Neuron'
+import Node from './Node'
+import { NODE_TYPE } from './Node'
 
 import Connection from './Connection'
 
@@ -8,16 +8,14 @@ import { emptyGenome } from './Genome';
 
 import Memory from './Memory'
 
-import Trainer from './Trainer'
-
 import * as _ from 'lodash'
 
 
 class Network {
-  private neuronMap = {};
-  private inputNeurons = Array<Neuron>();
-  private hiddenNeurons = Array<Neuron>();
-  private outputNeurons = Array<Neuron>();
+  private nodeMap = {};
+  private inputNodes = Array<Node>();
+  private hiddenNodes = Array<Node>();
+  private outputNodes = Array<Node>();
   private connections = Array<Connection>();
 
   private junkGenes = {
@@ -30,8 +28,6 @@ class Network {
     decayRate: .999
   } as any;
 
-  private activations = 0;
-
   constructor(config = {} as any, genome: Genome = null) {
     _.defaults(config, this.config);
     this.config = config;
@@ -40,82 +36,86 @@ class Network {
       genome = emptyGenome(config.input, config.output);
     }
 
-    // add neurons
+    // add nodes
     _.each(genome.nodes, gene => {
       if (!gene.enabled) {
         this.junkGenes.nodes.push(gene);
         return;
       }
-      const neuron = new Neuron(gene.id, gene.type, gene.bias);
-      this.neuronMap[gene.id] = neuron;
+      const node = new Node(gene.id, gene.type, gene.bias);
+      this.nodeMap[gene.id] = node;
       switch (gene.type) {
-        case NEURON_TYPE.input:
-          this.inputNeurons.push(neuron)
+        case NODE_TYPE.input:
+          this.inputNodes.push(node)
           break;
-        case NEURON_TYPE.hidden:
-          this.hiddenNeurons.push(neuron)
+        case NODE_TYPE.hidden:
+          this.hiddenNodes.push(node)
           break;
-        case NEURON_TYPE.output:
-          this.outputNeurons.push(neuron)
+        case NODE_TYPE.output:
+          this.outputNodes.push(node)
           break;
       }
     });
 
     // add connections
     _.each(genome.connections, gene => {
-      const fromNeuron = this.neuronMap[gene.from];
-      const toNeuron = this.neuronMap[gene.to];
+      const fromNode = this.nodeMap[gene.from];
+      const toNode = this.nodeMap[gene.to];
       if (!gene.enabled) {
         this.junkGenes.connections.push(gene);
         return;
       }
-      const connection = new Connection(fromNeuron, toNeuron, gene.weight, gene.innovation);
+      const connection = new Connection(fromNode, toNode, gene.weight, gene.innovation);
       this.connections.push(connection);
-      fromNeuron.connectForward(connection);
-      toNeuron.connectBackward(connection);
+      fromNode.connectForward(connection);
+      toNode.connectBackward(connection);
     });
   }
 
   activate(pattern: Array<number>) {
     const memory = new Memory();
-    if (pattern.length != this.inputNeurons.length) {
+    if (pattern.length != this.inputNodes.length) {
       throw new Error('Invalid pattern supplied.')
     }
 
     _.each(pattern, (activation, i) => {
-      this.inputNeurons[i].activate(activation, memory);
+      this.inputNodes[i].activate(activation, memory);
     })
 
-    const result = [];
-    _.each(this.outputNeurons, neuron => {
-      result.push(neuron.getActivation())
+    return this.getOutput();
+  }
+
+  getOutput() {
+    const output = [];
+    _.each(this.outputNodes, node => {
+      output.push(node.getActivation())
     })
-    return result;
+    return output;
   }
 
   train(example) {
     this.activate(example.input);
 
-    _.each(this.outputNeurons, (neuron: Neuron, index) => {
-      neuron.propagateOutput(example.output[index], this.config.learningRate);
+    _.each(this.outputNodes, (node: Node, index) => {
+      node.propagateOutput(example.output[index], this.config.learningRate);
     });
     const memory = new Memory();
-    _.each(this.outputNeurons, (neuron: Neuron, index) => {
-      neuron.adjust(memory);
+    _.each(this.outputNodes, (node: Node, index) => {
+      node.adjust(memory);
     });
   }
 
   getConfig() { return this.config; }
-  getInputNeurons() { return this.inputNeurons; }
-  getHiddenNeurons() { return this.hiddenNeurons; }
-  getOutputNeurons() { return this.outputNeurons; }
+  getInputNodes() { return this.inputNodes; }
+  getHiddenNodes() { return this.hiddenNodes; }
+  getOutputNodes() { return this.outputNodes; }
 
   getGenome(): Genome {
     const genome = new Genome();
 
-    // add neurons to genome
-    _.each(this.neuronMap, (neuron: Neuron) => {
-      genome.addNeuron(neuron)
+    // add nodes to genome
+    _.each(this.nodeMap, (node: Node) => {
+      genome.addNode(node)
     });
     _.each(this.junkGenes.nodes, gene => {
       genome.addNodeGene(gene.id, gene.type, gene.bias, gene.squash, false);

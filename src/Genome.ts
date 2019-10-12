@@ -1,14 +1,14 @@
-import Neuron from './Neuron'
-import { NEURON_TYPE } from './Neuron'
+import Node from './Node'
+import { NODE_TYPE } from './Node'
 import Connection from './Connection';
 class Genome {
   public nodes = [];
   public connections = [];
 
-  addNeuron(neuron: Neuron) {
-    this.nodes.push(neuron.toJSON())
+  addNode(node: Node) {
+    this.nodes.push(node.toJSON())
   }
-  addNodeGene(id: number, type: NEURON_TYPE, bias: number, squash: string = 'logistic', enabled: boolean = true) {
+  addNodeGene(id: number, type: NODE_TYPE, bias: number, squash: string = 'logistic', enabled: boolean = true) {
     this.nodes.push({
       id,
       type,
@@ -36,10 +36,10 @@ export default Genome;
 export const emptyGenome = (input, output): Genome => {
   const genome = new Genome();
   for (let i = 0; i < input; i++) {
-    genome.addNodeGene(i, NEURON_TYPE.input, Math.random() * 2 - 1)
+    genome.addNodeGene(i, NODE_TYPE.input, Math.random() * 2 - 1)
   }
   for (let i = input; i < input + output; i++) {
-    genome.addNodeGene(i, NEURON_TYPE.output, Math.random() * 2 - 1)
+    genome.addNodeGene(i, NODE_TYPE.output, Math.random() * 2 - 1)
   }
 
   let innovation = 0;

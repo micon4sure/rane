@@ -3,21 +3,24 @@ import Squash from './Squash'
 import Connection from './Connection'
 import Memory from './Memory'
 
-export enum NEURON_TYPE {
+export enum NODE_TYPE {
   input = 'input',
   hidden = 'hidden',
   output = 'output'
 }
 
-class Neuron {
+class Node {
 
   private id: number;
-  private type: NEURON_TYPE;
+  private type: NODE_TYPE;
   private bias: number;
   private squash: Function
 
   private partialDerivativeErrorOutConnectedSum = 0;
-  private state: number;
+  private netInput: number;
+
+  private adjustment: number = 0;
+  private delta: number = 0;
 
   private connectionsForward = new Array<Connection>();
   private connectionsBackward = new Array<Connection>();
@@ -26,12 +29,12 @@ class Neuron {
   private activationValues = {};
   private propagations = 0;
 
-  constructor(id: number, type: NEURON_TYPE, bias: number = null, squash: string = 'sigmoid') {
+  constructor(id: number, type: NODE_TYPE, bias: number = null, squash: string = 'sigmoid') {
     this.id = id;
     this.type = type;
     this.squash = Squash[squash];
-    this.bias = bias === null ? Math.random() * 2 - 1 : bias;
-    this.state = 0;
+    this.bias = bias;
+    this.netInput = 0;
   }
 
   connectForward(connection: Connection) {
@@ -42,53 +45,59 @@ class Neuron {
   }
 
   activate(activation: number, memory: Memory, connection: Connection = null) {
-    if(connection !== null)
+    if (connection !== null)
       this.activationValues[connection.innovation] = activation;
     // if there has been no activations in this forward pass, the activation passed here is the initial state
     if (this.activations == 0) {
-      this.state = activation;
+      this.netInput = activation;
     } else {
       // otherwise, add the activation to the state
-      this.state += activation;
+      this.netInput += activation;
     }
 
-    // if all incoming neuron connections have fired
+    // if all incoming node connections have fired
     if (++this.activations >= this.connectionsBackward.length) {
       // reset the activations counter
       this.activations = 0;
 
       // calculate the activation value (squash state + bias)
-      // but don't squash or apply bias on input neurons
-      activation = this.type == NEURON_TYPE.input ? activation : this.getActivation();
+      // except if input node
+      const output = this.getActivation();
       // fire on all outgoing connections
       _.each(this.connectionsForward, (connection: Connection) => {
         if (!memory.allowed(connection.innovation)) return;
-        connection.to.activate(activation * connection.weight, memory, connection);
+        connection.to.activate(output * connection.weight, memory, connection);
         memory.activated(connection.innovation);
       })
     }
   }
 
-  /*
+	/*
     ∂Eₜₒₜₐₗ / ∂wᵢⱼ  = ( ∂Eₜₒₜₐₗ / ∂outⱼ ) * ( ∂outⱼ / ∂netⱼ ) * (  ∂netⱼ / ∂wᵢⱼ )
     
     ∂Eₜₒₜₐₗ / ∂outⱼ = - ( target - outⱼ)
-    ∂outⱼ / ∂netⱼ = outⱼ (1 - outⱼ)
+    ∂outⱼ / ∂netⱼ = outⱼ (1 - outⱼ) (derivative of activation function, here: sigmoid)
     ∂netⱼ / ∂wᵢⱼ  = outᵢ
 
-    Δw = -η * ∂Eₜₒₜₐₗ / ∂wᵢⱼ
+    Δw = -η * ∂Eₜₒₜₐₗ / ∂wᵢⱼ = -η * ∂ⱼ * outᵢ
   */
   propagateOutput(ideal, learningRate) {
-    const partialDerivativeErrorOut = -(ideal - this.getActivation())
-    const partialDerivativeOutNetinput = this.getActivation() * (1 - this.getActivation());
+    // calculate partial derivatives
+    const partialDerivativeErrorOut = -(ideal - this.getActivation());
+    const partialDerivativeOutNetinput = this.getActivation(true);
 
+    // for all incoming connections
     _.each(this.connectionsBackward, (connection: Connection) => {
-      const partialDerivativeNetinputWeight = connection.from.getActivation()
+      const partialDerivativeNetinputWeight = connection.from.getActivation();
 
-      const partialDerivativeErrorWeight = partialDerivativeErrorOut * partialDerivativeOutNetinput * partialDerivativeNetinputWeight;
-      connection.adjustment = -learningRate * partialDerivativeErrorWeight;
-      
-      connection.from.propagateHidden(partialDerivativeErrorOut, connection.weight, learningRate);
+      // calculate partial derivative for error to weight of connection
+      const derivativeErrorWeight = partialDerivativeErrorOut * partialDerivativeOutNetinput * partialDerivativeNetinputWeight;
+      // assign weight adjustment to connection
+      connection.adjustment = connection.delta = -learningRate * derivativeErrorWeight;
+
+      // propagate error backwards
+      if (connection.from.type == NODE_TYPE.input) return;
+      connection.from.propagateHidden(partialDerivativeErrorOut, learningRate);
     });
   }
 
@@ -103,23 +112,43 @@ class Neuron {
 
     Δw = -η * ∂Eₜₒₜₐₗ / ∂wᵢⱼ
   */
-  propagateHidden(partialDerivativeErrorOutConnected, weight, learningRate) {
+  propagateHidden(partialDerivativeErrorOutConnected, learningRate) {
+    // add up all incoming error derivatives
     this.partialDerivativeErrorOutConnectedSum += partialDerivativeErrorOutConnected;
-    if(++this.propagations == this.connectionsForward.length) {
+
+    // if all incoming connections have backpropagated
+    if (++this.propagations == this.connectionsForward.length) {
       this.propagations = 0;
-      const partialDerivativeOutNetinput = this.getActivation() * (1 - this.getActivation());
+
+      // calculate partial derivatives
+      const partialDerivativeOutNetinput = this.getActivation(true);
+      const partialDerivativeNetinputBias = 1;
+
+      // calculate partial derivative for error to bias
+      const derivativeErrorBias = this.partialDerivativeErrorOutConnectedSum * partialDerivativeOutNetinput * partialDerivativeNetinputBias;
+      // assign bias adjustment to node
+      this.adjustment = -learningRate * derivativeErrorBias;
+
+      // for all incoming connections
       _.each(this.connectionsBackward, (connection: Connection) => {
         const partialDerivativeNetinputWeight = this.activationValues[connection.innovation];
 
-        const partialDerivativeErrorWeight = this.partialDerivativeErrorOutConnectedSum * partialDerivativeOutNetinput * partialDerivativeNetinputWeight;
-        connection.adjustment = -learningRate * partialDerivativeErrorWeight;
-          
-        connection.from.propagateHidden(this.partialDerivativeErrorOutConnectedSum, connection.weight, learningRate)
+        // calculate partial derivative for error to weight of connection
+        const derivativeErrorWeight = this.partialDerivativeErrorOutConnectedSum * partialDerivativeOutNetinput * partialDerivativeNetinputWeight;
+        // assign weight adjustment to connection
+        connection.adjustment = connection.delta = -learningRate * derivativeErrorWeight;
+
+        // propagate errors backwards
+        if (connection.from.type == NODE_TYPE.input) return;
+        connection.from.propagateHidden(this.partialDerivativeErrorOutConnectedSum, learningRate);
       });
     }
   }
 
   adjust(memory) {
+    // actually adjust bias and connection weights (recursively)
+    this.bias += this.adjustment;
+    this.adjustment = 0;
     _.each(this.getConnectionsBackward(), (connection: Connection) => {
       if (!memory.allowed(connection.innovation)) return;
       connection.weight += connection.adjustment;
@@ -134,8 +163,13 @@ class Neuron {
   getBias() { return this.bias; }
   getSquash() { return this.squash; }
 
-  getState() { return this.state; }
-  getActivation(derivative = false) { return this.squash(this.state + this.bias, derivative); }
+  getState() { return this.netInput; }
+  getActivation(derivative = false) {
+    if(this.type == NODE_TYPE.input) {
+      return this.netInput;
+    }
+    return this.squash(this.netInput + this.bias, derivative);
+  }
 
   getConnectionsForward() { return this.connectionsForward; }
   getConnectionsBackward() { return this.connectionsBackward; }
@@ -153,6 +187,8 @@ class Neuron {
       activations: this.activations,
       propagations: this.propagations,
       enabled: true,
+      adjustment: this.adjustment,
+      delta: this.delta,
       connections: _.map(this.connectionsForward, connection => {
         return {
           to: connection.to.id,
@@ -163,4 +199,4 @@ class Neuron {
   }
 }
 
-export default Neuron;
+export default Node;

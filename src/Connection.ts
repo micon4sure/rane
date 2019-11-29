@@ -1,15 +1,16 @@
-import Neuron from './Neuron'
+import Node from './Node'
 
 class Connection {
 
-  public from: Neuron;
-  public to: Neuron;
+  public from: Node;
+  public to: Node;
   public weight: number;
   public innovation: number;
 
   public adjustment: number;
+  public delta: number;
 
-  constructor(from: Neuron, to: Neuron, weight:number, innovation: number) {
+  constructor(from: Node, to: Node, weight:number, innovation: number) {
     this.from = from;
     this.to = to;
     this.weight = weight;
@@ -23,6 +24,7 @@ class Connection {
       to: this.to.getId(),
       weight: this.weight,
       adjustment: this.adjustment,
+      delta: this.delta,
       enabled: true
     }
   }

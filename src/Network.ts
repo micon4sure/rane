@@ -42,7 +42,7 @@ class Network {
         this.junkGenes.nodes.push(gene);
         return;
       }
-      const node = new Node(gene.id, gene.type, gene.bias, gene.squash);
+      const node = new Node(gene.id, gene.type, gene.bias, gene.squash, this);
       this.nodeMap[gene.id] = node;
       switch (gene.type) {
         case NODE_TYPE.input:
@@ -65,7 +65,7 @@ class Network {
         this.junkGenes.connections.push(gene);
         return;
       }
-      const connection = new Connection(fromNode, toNode, gene.weight, gene.innovation);
+      const connection = new Connection(fromNode, toNode, gene.weight, gene.innovation, gene.plasticity);
       this.connections.push(connection);
       fromNode.connectForward(connection);
       toNode.connectBackward(connection);
@@ -94,15 +94,17 @@ class Network {
   }
 
   train(example) {
-    this.activate(example.input);
+    const result = this.activate(example.input);
 
     _.each(this.outputNodes, (node: Node, index) => {
-      node.propagateOutput(example.output[index], this.config.learningRate);
+      node.propagateOutput(example.output[index]);
     });
     const memory = new Memory();
     _.each(this.outputNodes, (node: Node, index) => {
-      node.adjust(memory);
+      node.adjust(memory, this.config.learningRate);
     });
+
+    return result;
   }
 
   getConfig() { return this.config; }
@@ -126,7 +128,7 @@ class Network {
       genome.addConnection(connection);
     });
     _.each(this.junkGenes.connections, gene => {
-      genome.addConnectionGene(gene.from, gene.to, gene.weight, gene.innovation, false);
+      genome.addConnectionGene(gene.from, gene.to, gene.weight, gene.innovation, gene.plasticity, false);
     });
     return genome;
   }

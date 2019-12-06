@@ -11,11 +11,6 @@
   },
   "author": "",
   "license": "ISC",
-  "devDependencies": {
-    "@types/jest": "^24.0.18",
-    "jest": "^24.9.0",
-    "ts-jest": "^24.1.0"
-  },
   "dependencies": {
     "@types/lodash": "^4.14.141",
     "@types/node": "^12.7.8",

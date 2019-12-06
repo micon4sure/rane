@@ -33,6 +33,7 @@ class Node {
 		bias: number = null,
 		squash: string = "sigmoid"
 	) {
+    console.log('THIS IS SQUASHY', squash)
 		this.id = id;
 		this.type = type;
 		this.squash = Squash[squash];
@@ -169,39 +170,22 @@ class Node {
 		});
 	}
 
-	getId() {
-		return this.id;
-	}
-	getType() {
-		return this.type;
-	}
-	getBias() {
-		return this.bias;
-	}
-	getSquash() {
-		return this.squash;
-	}
+  getId() { return this.id; }
+  getType() { return this.type; }
+  getBias() { return this.bias; }
+  getSquash() { return this.squash; }
 
-	getNetinput() {
-		return this.netInput;
-	}
-	getActivation(derivative = false) {
-		if (this.type == NODE_TYPE.input) {
-			return this.netInput;
-		}
-		return this.squash(this.netInput + this.bias, derivative);
-	}
+  getState() { return this.netInput; }
+  getActivation(derivative = false) {
+    if(this.type == NODE_TYPE.input) {
+      return this.netInput;
+    }
+    return this.squash(this.netInput + this.bias, derivative);
+  }
+  getNetinput() { return this.netInput; }
 
-	getConnectionsForward() {
-		return this.connectionsForward;
-	}
-	getConnectionsBackward() {
-		return this.connectionsBackward;
-	}
-
-	setBias(bias) {
-		this.bias = bias;
-	}
+  getConnectionsForward() { return this.connectionsForward; }
+  getConnectionsBackward() { return this.connectionsBackward; }
 
 	toJSON() {
 		return {

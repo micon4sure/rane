@@ -25,7 +25,6 @@ class Node {
 	private connectionsBackward = new Array<Connection>();
 
 	private activations = 0;
-	private activationValues = {};
 	private propagations = 0;
 
 	constructor(
@@ -50,7 +49,6 @@ class Node {
 
 	activate(activation: number, memory: Memory, connection: Connection = null) {
 		if (connection !== null)
-			this.activationValues[connection.innovation] = activation;
 		// if there has been no activations in this forward pass, the activation passed here is the initial state
 		if (this.activations == 0) {
 			this.netInput = activation;
@@ -217,7 +215,6 @@ class Node {
 			propagations: this.propagations,
 			enabled: true,
 			delta: this.delta,
-			activationValues: this.activationValues,
 			connections: {
 				outgoing: _.map(this.connectionsForward, connection => {
 					return {

@@ -48,11 +48,11 @@ class Node {
 	}
 
 	activate(activation: number, memory: Memory, connection: Connection = null) {
-		// if there has been no activations in this forward pass, the activation passed here is the initial state
+		// if there has been no activations in this forward pass, the activation passed here is the initial netInput
 		if (this.activations == 0) {
 			this.netInput = activation;
 		} else {
-			// otherwise, add the activation to the state
+			// otherwise, add the activation to the netInput
 			this.netInput += activation;
 		}
 
@@ -62,7 +62,7 @@ class Node {
 			this.activations = 0;
 
 			// calculate the activation value (squash state + bias)
-			// except if input node
+			// except if input node (then it's just unchanged input value)
       const output = this.getActivation();
 			// fire on all outgoing connections
 			_.each(this.connectionsForward, (connection: Connection) => {
@@ -87,8 +87,7 @@ class Node {
 		const partialDerivativeErrorOut = -(ideal - this.getActivation());
     const partialDerivativeOutNetinput = this.getActivation(true);
     
-		this.adjustment = this.delta =
-    learningRate * partialDerivativeOutNetinput * partialDerivativeErrorOut;
+		this.adjustment = this.delta = learningRate * partialDerivativeOutNetinput * partialDerivativeErrorOut;
     
 		// for all incoming connections
 		_.each(this.connectionsBackward, (connection: Connection) => {
@@ -132,7 +131,6 @@ class Node {
 
 			// calculate partial derivative for error to bias
 			const derivativeErrorBias = this.partialDerivativeErrorOutConnectedSum * partialDerivativeOutNetinput * partialDerivativeNetinputBias;
-
 			// assign bias adjustment to node
 			this.adjustment = learningRate * derivativeErrorBias;
 

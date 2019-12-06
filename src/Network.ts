@@ -103,6 +103,8 @@ class Network {
     _.each(this.outputNodes, (node: Node, index) => {
       node.adjust(memory);
     });
+
+    return this.getOutput();
   }
 
   getConfig() { return this.config; }

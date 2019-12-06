@@ -33,7 +33,6 @@ class Node {
 		bias: number = null,
 		squash: string = "sigmoid"
 	) {
-    console.log('THIS IS SQUASHY', squash)
 		this.id = id;
 		this.type = type;
 		this.squash = Squash[squash];

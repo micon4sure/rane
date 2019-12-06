@@ -48,7 +48,6 @@ class Node {
 	}
 
 	activate(activation: number, memory: Memory, connection: Connection = null) {
-		if (connection !== null)
 		// if there has been no activations in this forward pass, the activation passed here is the initial state
 		if (this.activations == 0) {
 			this.netInput = activation;

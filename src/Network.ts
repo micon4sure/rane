@@ -97,11 +97,25 @@ class Network {
     this.activate(example.input);
 
     _.each(this.outputNodes, (node: Node, index) => {
-      node.propagateOutput(example.output[index], this.config.learningRate);
+      node.pdError_Output =  example.output[index] - node.getActivation();
     });
-    const memory = new Memory();
-    _.each(this.outputNodes, (node: Node, index) => {
-      node.adjust(memory);
+    _.each(this.hiddenNodes, (node: Node, index) => {
+      _.each(node.getConnectionsBackward(), connection => {
+        node.pdError_Output += connection.to.pdError_Output;
+      });
+    });
+
+
+    _.each(this.nodeMap, (node: Node) => {
+      node.adjust(this.config.learningRate);
+    })
+
+    _.each(this.connections, connection => {
+      connection.adjust();
+    })
+
+    _.each(this.nodeMap, (node: Node) => {
+      node.pdError_Output = 0;
     });
 
     return this.getOutput();

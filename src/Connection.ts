@@ -17,6 +17,11 @@ class Connection {
     this.innovation = innovation;
   }
 
+  adjust() {
+    this.weight += this.adjustment;
+    this.adjustment = 0;
+  }
+
   toJSON() {
     return {
       innovation: this.innovation,

@@ -99,9 +99,8 @@ class Network {
     _.each(this.outputNodes, (node: Node, index) => {
       node.propagateOutput(example.output[index], this.config.learningRate);
     });
-    const memory = new Memory();
-    _.each(this.outputNodes, (node: Node, index) => {
-      node.adjust(memory);
+    _.each(this.connections, (connection: Connection, index) => {
+      connection.adjust();
     });
 
     return this.getOutput();

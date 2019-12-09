@@ -98,11 +98,15 @@ class Network {
 
     _.each(this.outputNodes, (node: Node, index) => {
       node.pdError_Output =  example.output[index] - node.getActivation();
+      //console.log('oooooo', example.output[index], node.getActivation())
+      node.adjust(this.config.learningRate);
     });
     _.each(this.hiddenNodes, (node: Node, index) => {
-      _.each(node.getConnectionsBackward(), connection => {
-        node.pdError_Output += connection.to.pdError_Output;
+      _.each(node.getConnectionsForward(), connection => {
+        node.pdError_Output += connection.weight * connection.to.pdError_Net;
       });
+      //console.log('UPDATE h', {id: node.getId(), pdErrorWrtOutput: node.pdError_Output})
+      node.adjust(this.config.learningRate);
     });
 
 

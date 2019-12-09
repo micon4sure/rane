@@ -85,12 +85,13 @@ class Node {
 	}
 
 	adjust(learningRate) {
+    if(this.getType() == NODE_TYPE.input) return;
     const pdOutput_Net  = this.getActivation(true);
     this.pdError_Net = this.pdError_Output * pdOutput_Net;
     _.each(this.connectionsBackward, connection => {
       const pdNet_Input = connection.from.getActivation();
       const pdError_Weight = this.pdError_Net * pdNet_Input
-      console.log('adjusting!', {node: this.id, from: connection.from.id, w: connection.innovation, inputs: this.activationValues, pdErrorOut: this.pdError_Output, pdNet_Input,pdOutput_Net, pdError_Weight})
+      //console.log('adjusting!', {node: this.id, from: connection.from.id, w: connection.innovation, inputs: this.activationValues, pdErrorOut: this.pdError_Output, pdNet_Input,pdOutput_Net, pdError_Weight})
       connection.adjustment = learningRate * pdError_Weight;
     });
 	}

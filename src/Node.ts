@@ -126,7 +126,7 @@ class Node {
 			this.propagations = 0;
 
 			// calculate partial derivatives
-			const partialDerivativeOutNetinput = this.getActivation(true);
+			const partialDerivativeOutNetinput = this.getActivation();
 			const partialDerivativeNetinputBias = 1;
 
 			// calculate partial derivative for error to bias

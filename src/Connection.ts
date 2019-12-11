@@ -18,6 +18,7 @@ class Connection {
   }
 
   adjust() {
+    //console.log('UPDATE WEIGHT', {id: this.innovation, from: this.from.getId(), to: this.to.getId(), adjustment: this.adjustment})
     this.weight += this.adjustment;
     this.adjustment = 0;
   }

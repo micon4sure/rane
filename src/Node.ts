@@ -84,11 +84,14 @@ class Node {
   */
 	propagateOutput(ideal, learningRate) {
 		// calculate partial derivatives
-		const pdError_Out = ideal - this.getActivation();
+		const pdError_Output = ideal - this.getActivation();
     const pdOutput_Net = this.getActivation(true);
-    const pdError_Net = pdError_Out * pdOutput_Net;
+    const pdError_Net = pdError_Output * pdOutput_Net;
+    //console.log('setting pderrout', {id: this.id, pdError_Out})
     
-		this.adjustment = this.delta = learningRate * pdOutput_Net * pdError_Out;
+    //this.adjustment = this.delta = learningRate * pdOutput_Net * pdError_Output;
+    //const pdNet_Bias = 1;
+    //this.adjustment = pdError_Output * pdNet_Bias;
     
 		// for all incoming connections
 		_.each(this.connectionsBackward, (connection: Connection) => {
@@ -98,10 +101,13 @@ class Node {
 			const pdError_Weight = pdError_Net * pdNet_Input
 
 			// assign weight adjustment to connection
-			connection.adjustment = connection.delta = learningRate * pdError_Weight;
+      connection.adjustment = connection.delta = learningRate * pdError_Weight;
+      //console.log('adjustment', {from: connection.from.id, to: connection.to.id, pdError_Weight})
   
 			// propagate error backwards
-			if (connection.from.type == NODE_TYPE.input) return;
+      if (connection.from.type == NODE_TYPE.input) return;
+      //console.log('UPDATE WEIGHT', {id: connection.innovation, from: connection.from.id, to: connection.to.id, pdError_Out, pdError_Weight, pdNet_Input, pdOutput_Net})
+      //console.log('PROPAGATING', {from: connection.from.id, pdError_Net, to: connection.to.id, weight: connection.weight, combined: pdError_Net * connection.weight})
 			connection.from.propagateHidden(pdError_Net * connection.weight, learningRate);
 		});
 	}
@@ -118,7 +124,8 @@ class Node {
     Δw = -η * ∂Eₜₒₜₐₗ / ∂wᵢⱼ
   */
 	propagateHidden(pdError_Output_Connected, learningRate) {
-		// add up all incoming error derivatives
+    // add up all incoming error derivatives
+    //console.log('adding pdErrOutSum', this.id, this.propagations, pdError_Output_Connected)
     this.pdError_Output_Connected_Sum += pdError_Output_Connected;
     const pdOutput_Net = this.getActivation(true);
 
@@ -127,14 +134,8 @@ class Node {
       const pdError_Net = this.pdError_Output_Connected_Sum * pdOutput_Net;
       this.propagations = 0;
       
-			// calculate partial derivatives
-			const partialDerivativeOutNetinput = this.getActivation();
-			const partialDerivativeNetinputBias = 1;
-
-			// calculate partial derivative for error to bias
-			const derivativeErrorBias = this.pdError_Output_Connected_Sum * partialDerivativeOutNetinput * partialDerivativeNetinputBias;
 			// assign bias adjustment to node
-			this.adjustment = learningRate * derivativeErrorBias;
+      //this.adjustment = this.delta = learningRate * pdOutput_Net * this.pdError_Output_Connected_Sum;
 
 			// for all incoming connections
 			_.each(this.connectionsBackward, (connection: Connection) => {
@@ -144,29 +145,23 @@ class Node {
         const pdError_Weight = pdError_Net * pdNet_Input;
 				// assign weight adjustment to connection
 				connection.adjustment = connection.delta = learningRate * pdError_Weight;
+        //console.log('UPDATE WEIGHT', {from: connection.from.id, to: connection.to.id, pdError_Out: this.pdError_Output_Connected_Sum, pdError_Weight, pdNet_Input, pdOutput_Net})
 
 				// propagate errors backwards
         if (connection.from.type == NODE_TYPE.input) return;
-        console.log('WHAAAA')
 				connection.from.propagateHidden(
 					pdError_Net * connection.weight,
 					learningRate
 				);
-			});
+      });
+      this.pdError_Output_Connected_Sum = 0;
 		}
 	}
 
-	adjust(memory) {
+	adjust() {
 		// actually adjust bias and connection weights (recursively)
-		//this.bias -= this.adjustment;
+		this.bias -= this.adjustment;
 		this.adjustment = 0;
-		_.each(this.getConnectionsBackward(), (connection: Connection) => {
-			if (!memory.allowed(connection.innovation)) return;
-			connection.weight -= connection.adjustment;
-			connection.adjustment = 0;
-			memory.activated(connection.innovation);
-			connection.from.adjust(memory);
-		});
 	}
 
   getId() { return this.id; }

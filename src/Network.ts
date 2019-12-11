@@ -102,7 +102,10 @@ class Network {
     _.each(this.connections, (connection: Connection, index) => {
       connection.adjust();
     });
-
+    _.each(this.nodeMap, (node: Node, index) => {
+      node.adjust();
+    });
+    
     return this.getOutput();
   }
 

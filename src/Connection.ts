@@ -7,7 +7,7 @@ class Connection {
   public weight: number;
   public innovation: number;
 
-  public adjustment: number;
+  public adjustment: number = 0;
   public delta: number;
 
   constructor(from: Node, to: Node, weight:number, innovation: number) {

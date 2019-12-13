@@ -94,7 +94,7 @@ class Network {
     this.activate(example.input);
 
     _.each(this.outputNodes, (node: Node, index) => {
-      node.propagateOutput(example.output[index], this.config.learningRate);
+      node.propagateOutput(example.output[index], this.config.learningRate, this.config.momentum);
     });
     _.each(this.connections, (connection: Connection, index) => {
       connection.adjust();

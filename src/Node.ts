@@ -19,6 +19,7 @@ class Node {
   private output: number = 0;
 
   private adjustment: number = 0;
+  private adjustmentModifier: number = 0;
   private delta: number = 0;
 
   private connectionsForward = new Array<Connection>();
@@ -62,13 +63,13 @@ class Node {
 
       // calculate the activation value (squash net input)
       // except if input node (then it's just unchanged input value)
-      if(this.type == NODE_TYPE.input) {
+      if (this.type == NODE_TYPE.input) {
         this.output = this.netInput;
       } else {
         this.netInput += this.bias;
         this.output = this.squash(this.netInput, false);
       }
-      
+
       // fire on all outgoing connections
       _.each(this.connectionsForward, (connection: Connection) => {
         connection.to.activate(this.output * connection.weight, connection);
@@ -76,45 +77,62 @@ class Node {
     }
   }
 
-   propagateOutput(ideal, learningRate) {
-     const signalError = this.squash(this.netInput, true) * (this.output - ideal);
-     this.adjustment = -learningRate * signalError * this.squash(this.netInput, true);
+  propagateOutput(ideal, learningRate, momentum) {
+    // calculate signal error (partial derivative of activation with respect to net input)
+    const signalError = this.squash(this.netInput, true) * (this.output - ideal);
 
-     _.each(this.connectionsBackward, connection => {
-       connection.adjustment = connection.delta =  -learningRate * signalError * connection.from.output;
-       connection.from.propagateHidden(signalError * connection.weight, learningRate);
-     });
+    // set bias delta and modifier
+    this.adjustment = -learningRate * signalError * this.squash(this.netInput, true);
+    this.adjustmentModifier = this.adjustment * momentum;
+
+    _.each(this.connectionsBackward, connection => {
+      // set weight delta and modifier
+      connection.adjustment = connection.delta = -learningRate * signalError * connection.from.output;
+      connection.adjustmentModifier = connection.adjustment * momentum;
+
+      // propagate backwards
+      connection.from.propagateHidden(signalError * connection.weight, learningRate, momentum);
+    });
   }
 
-  propagateHidden(signalError, learningRate) {
+  propagateHidden(signalError, learningRate, momentum) {
+    // sum up incoming signal error for later use
     this.signalErrorSum += signalError;
 
-    if(++this.propagations == this.connectForward.length) {
-      this.adjustment = -learningRate * this.signalErrorSum * this.squash(this.netInput, true);
-
-      // all incoming connections have fired
+    // note: input nodes won't ever hit this condition as is intended
+    if (++this.propagations == this.connectForward.length) {
+      // all incoming connections have fired (reset counter)
       this.propagations = 0;
 
+      // set bias delta and modifier
+      this.adjustment = -learningRate * this.signalErrorSum * this.squash(this.netInput, true);
+      this.adjustmentModifier = this.adjustment * momentum;
+
+      // calculate signal error (partial derivative of activation with respect to net input)
       const signalError = this.squash(this.netInput, true) * this.signalErrorSum;
       _.each(this.connectionsBackward, connection => {
+        // set weight delta and modifier
         connection.adjustment = connection.delta = -learningRate * signalError * connection.from.output;
-        connection.from.propagateHidden(signalError, learningRate);
+        connection.adjustmentModifier = connection.adjustment * momentum;
+
+        // propagate backwards
+        connection.from.propagateHidden(signalError, learningRate, momentum);
       })
     }
   }
 
   adjust() {
-    this.bias += this.adjustment;
+    this.bias += this.adjustment + this.adjustmentModifier;
     this.adjustment = 0;
     this.signalErrorSum = 0;
   }
 
   getId() { return this.id; }
   getType() { return this.type; }
-  
+
   getNetInput() { return this.netInput; }
   getOutput() { return this.output; }
-  
+
   getBias() { return this.bias; }
 
   getConnectionsForward() { return this.connectionsForward; }

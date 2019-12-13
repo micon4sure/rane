@@ -8,6 +8,7 @@ class Connection {
   public innovation: number;
 
   public adjustment: number = 0;
+  public adjustmentModifier: number = 0;
   public delta: number;
 
   constructor(from: Node, to: Node, weight:number, innovation: number) {
@@ -18,8 +19,7 @@ class Connection {
   }
 
   adjust() {
-    //console.log('UPDATE WEIGHT', {id: this.innovation, from: this.from.getId(), to: this.to.getId(), adjustment: this.adjustment})
-    this.weight += this.adjustment;
+    this.weight += this.adjustment + this.adjustmentModifier;
     this.adjustment = 0;
   }
 

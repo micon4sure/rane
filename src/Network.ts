@@ -6,8 +6,6 @@ import Connection from './Connection'
 import Genome from './Genome';
 import { emptyGenome } from './Genome';
 
-import Memory from './Memory'
-
 import * as _ from 'lodash'
 
 
@@ -73,13 +71,12 @@ class Network {
   }
 
   activate(pattern: Array<number>) {
-    const memory = new Memory();
     if (pattern.length != this.inputNodes.length) {
       throw new Error('Invalid pattern supplied.')
     }
 
     _.each(pattern, (activation, i) => {
-      this.inputNodes[i].activate(activation, memory);
+      this.inputNodes[i].activate(activation);
     })
 
     return this.getOutput();
@@ -88,7 +85,7 @@ class Network {
   getOutput() {
     const output = [];
     _.each(this.outputNodes, node => {
-      output.push(node.getActivation())
+      output.push(node.getOutput())
     })
     return output;
   }
@@ -110,6 +107,8 @@ class Network {
   }
 
   getConfig() { return this.config; }
+  getNodes() { return this.nodeMap; }
+  getConnections() { return this.connections; }
   getInputNodes() { return this.inputNodes; }
   getHiddenNodes() { return this.hiddenNodes; }
   getOutputNodes() { return this.outputNodes; }

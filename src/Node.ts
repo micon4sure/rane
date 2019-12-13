@@ -1,7 +1,6 @@
 import * as _ from "lodash";
 import Squash from "./Squash";
 import Connection from "./Connection";
-import Memory from "./Memory";
 
 export enum NODE_TYPE {
   input = "input",
@@ -12,11 +11,12 @@ export enum NODE_TYPE {
 class Node {
   private id: number;
   private type: NODE_TYPE;
-  private bias: number;
   private squash: Function;
 
-  private sum_dk_wjk = 0;
-  private netInput: number;
+  private signalErrorSum: number = 0;
+  private bias: number = 1;
+  private netInput: number = 0;
+  private output: number = 0;
 
   private adjustment: number = 0;
   private delta: number = 0;
@@ -37,7 +37,6 @@ class Node {
     this.type = type;
     this.squash = Squash[squash];
     this.bias = bias;
-    this.netInput = 0;
   }
 
   connectForward(connection: Connection) {
@@ -47,7 +46,7 @@ class Node {
     this.connectionsBackward.push(connection);
   }
 
-  activate(activation: number, memory: Memory, connection: Connection = null) {
+  activate(activation: number, connection: Connection = null) {
     // if there has been no activations in this forward pass, the activation passed here is the initial netInput
     if (this.activations == 0) {
       this.netInput = activation;
@@ -61,80 +60,62 @@ class Node {
       // reset the activations counter
       this.activations = 0;
 
-      // calculate the activation value (squash state + bias)
+      // calculate the activation value (squash net input)
       // except if input node (then it's just unchanged input value)
-      const output = this.getActivation();
+      if(this.type == NODE_TYPE.input) {
+        this.output = this.netInput;
+      } else {
+        this.netInput += this.bias;
+        this.output = this.squash(this.netInput, false);
+      }
+      
       // fire on all outgoing connections
       _.each(this.connectionsForward, (connection: Connection) => {
-        if (!memory.allowed(connection.innovation)) return;
-        connection.to.activate(output * connection.weight, memory, connection);
-        memory.activated(connection.innovation);
+        connection.to.activate(this.output * connection.weight, connection);
       });
     }
   }
 
-  /**
-   * ∂Cost/weight = ∂Cost / ∂A * ∂A / ∂Z * ∂Z / ∂W
-   * ∂Cost/bias = ∂Cost / ∂A * ∂A / ∂Z * ∂Z / ∂B
-   * ∂Cost/A-1 = ∂Cost / ∂A * ∂A / ∂Z * ∂Z / ∂B
-   * ∂Z / ∂B = 1
-   */
-  /**
-   * (pdError_Weight = pdError_Net * pdNet_Input)
-   * 
-   * dj == pdError_Net (pdError_Output * pdOutput_Net)
-   * pdNet_Input = incoming value from connection
-   */
    propagateOutput(ideal, learningRate) {
-    const dj = this.getActivation(true) * (this.getActivation() - ideal)
-    _.each(this.connectionsBackward, connection => {
-      connection.adjustment = connection.delta =  -learningRate * dj * connection.from.getActivation();
-      connection.from.propagateHidden(connection.weight * dj, learningRate)
-    });
+     const signalError = this.squash(this.netInput, true) * (this.output - ideal);
+     this.adjustment = -learningRate * signalError * this.squash(this.netInput, true);
+
+     _.each(this.connectionsBackward, connection => {
+       connection.adjustment = connection.delta =  -learningRate * signalError * connection.from.output;
+       connection.from.propagateHidden(signalError * connection.weight, learningRate);
+     });
   }
 
-  /**
-   * (pdError_Weight = pdError_Net * pdNet_Input)
-   * 
-   * dj == pdError_Net (pdError_Output * pdOutput_Net)
-   * pdNet_Input = incoming value from connection
-   */
-  propagateHidden(dk_wjk, learningRate) {
-    this.sum_dk_wjk += dk_wjk;
-    if (++this.propagations >= this.connectionsForward.length) {
-      const dj = this.getActivation(true) * this.sum_dk_wjk
-      
+  propagateHidden(signalError, learningRate) {
+    this.signalErrorSum += signalError;
+
+    if(++this.propagations == this.connectForward.length) {
+      this.adjustment = -learningRate * this.signalErrorSum * this.squash(this.netInput, true);
+
+      // all incoming connections have fired
+      this.propagations = 0;
+
+      const signalError = this.squash(this.netInput, true) * this.signalErrorSum;
       _.each(this.connectionsBackward, connection => {
-        connection.adjustment = connection.delta = -learningRate * dj * connection.from.getActivation();
-        
-        connection.from.propagateHidden(connection.weight * dj, learningRate)
-      });
+        connection.adjustment = connection.delta = -learningRate * signalError * connection.from.output;
+        connection.from.propagateHidden(signalError, learningRate);
+      })
     }
   }
 
   adjust() {
-    //this.bias += this.adjustment;
-    this.sum_dk_wjk = 0;
+    this.bias += this.adjustment;
+    this.adjustment = 0;
+    this.signalErrorSum = 0;
   }
 
   getId() { return this.id; }
   getType() { return this.type; }
+  
+  getNetInput() { return this.netInput; }
+  getOutput() { return this.output; }
+  
   getBias() { return this.bias; }
-  getSquash() { return this.squash; }
-
-  getUnsquished() {
-    return this.netInput + this.bias;
-  }
-  getActivation(derivative = false) {
-    if (this.type == NODE_TYPE.input) {
-      return this.netInput;
-    }
-    if(derivative) {
-      //return this.squash(this.getActivation(), true)
-    }
-    return this.squash(this.netInput + this.bias, derivative);
-  }
-  getNetinput() { return this.netInput; }
 
   getConnectionsForward() { return this.connectionsForward; }
   getConnectionsBackward() { return this.connectionsBackward; }
@@ -145,8 +126,8 @@ class Node {
       type: this.type,
       bias: this.bias,
       squash: this.squash.name,
-      activation: this.getActivation(),
-      netInput: this.getNetinput(),
+      output: this.output,
+      netInput: this.netInput,
       activations: this.activations,
       propagations: this.propagations,
       enabled: true,

@@ -23,10 +23,10 @@ class Network {
 
   private config = {
     learningRate: .001,
-    decayRate: .999
+    momentum: .5
   } as any;
 
-  constructor(config = {} as any, genome: Genome = null) {
+  constructor(genome: Genome = null, config = {} as any) {
     _.defaults(config, this.config);
     this.config = config;
 
@@ -40,7 +40,7 @@ class Network {
         this.junkGenes.nodes.push(gene);
         return;
       }
-      const node = new Node(gene.id, gene.type, gene.bias, gene.squash);
+      const node = new Node(gene.id, gene.type, gene.bias, gene.squash, this.config);
       this.nodeMap[gene.id] = node;
       switch (gene.type) {
         case NODE_TYPE.input:
@@ -94,7 +94,7 @@ class Network {
     this.activate(example.input);
 
     _.each(this.outputNodes, (node: Node, index) => {
-      node.propagateOutput(example.output[index], this.config.learningRate, this.config.momentum);
+      node.propagateOutput(example.output[index]);
     });
     _.each(this.connections, (connection: Connection, index) => {
       connection.adjust();

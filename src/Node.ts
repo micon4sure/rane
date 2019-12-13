@@ -28,16 +28,14 @@ class Node {
   private activations = 0;
   private propagations = 0;
 
-  constructor(
-    id: number,
-    type: NODE_TYPE,
-    bias: number = null,
-    squash: string = "sigmoid"
-  ) {
+  private config;
+
+  constructor(id: number, type: NODE_TYPE, bias: number = null, squash: string = "sigmoid", config) {
     this.id = id;
     this.type = type;
     this.squash = Squash[squash];
     this.bias = bias;
+    this.config = config;
   }
 
   connectForward(connection: Connection) {
@@ -77,25 +75,26 @@ class Node {
     }
   }
 
-  propagateOutput(ideal, learningRate, momentum) {
+  propagateOutput(ideal) {
     // calculate signal error (partial derivative of activation with respect to net input)
     const signalError = this.squash(this.netInput, true) * (this.output - ideal);
 
     // set bias delta and modifier
-    this.adjustment = -learningRate * signalError * this.squash(this.netInput, true);
-    this.adjustmentModifier = this.adjustment * momentum;
+    this.adjustment = -this.config.learningRate * signalError * this.squash(this.netInput, true);
+    this.adjustmentModifier = this.adjustment * this.config.momentum;
 
     _.each(this.connectionsBackward, connection => {
       // set weight delta and modifier
-      connection.adjustment = connection.delta = -learningRate * signalError * connection.from.output;
-      connection.adjustmentModifier = connection.adjustment * momentum;
+      connection.adjustment = connection.delta = -this.config.learningRate * signalError * connection.from.output;
+      if(this.adjustment != 0)
+        connection.adjustmentModifier = connection.adjustment * this.config.momentum;
 
       // propagate backwards
-      connection.from.propagateHidden(signalError * connection.weight, learningRate, momentum);
+      connection.from.propagateHidden(signalError * connection.weight);
     });
   }
 
-  propagateHidden(signalError, learningRate, momentum) {
+  propagateHidden(signalError) {
     // sum up incoming signal error for later use
     this.signalErrorSum += signalError;
 
@@ -105,18 +104,19 @@ class Node {
       this.propagations = 0;
 
       // set bias delta and modifier
-      this.adjustment = -learningRate * this.signalErrorSum * this.squash(this.netInput, true);
-      this.adjustmentModifier = this.adjustment * momentum;
+      this.adjustment = -this.config.learningRate * this.signalErrorSum * this.squash(this.netInput, true);
+      if(this.adjustment != 0)
+        this.adjustmentModifier = this.adjustment * this.config.momentum;
 
       // calculate signal error (partial derivative of activation with respect to net input)
       const signalError = this.squash(this.netInput, true) * this.signalErrorSum;
       _.each(this.connectionsBackward, connection => {
         // set weight delta and modifier
-        connection.adjustment = connection.delta = -learningRate * signalError * connection.from.output;
-        connection.adjustmentModifier = connection.adjustment * momentum;
+        connection.adjustment = connection.delta = -this.config.learningRate * signalError * connection.from.output;
+        connection.adjustmentModifier = connection.adjustment * this.config.momentum;
 
         // propagate backwards
-        connection.from.propagateHidden(signalError, learningRate, momentum);
+        connection.from.propagateHidden(signalError);
       })
     }
   }

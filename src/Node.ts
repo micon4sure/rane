@@ -13,13 +13,14 @@ class Node {
   private type: NODE_TYPE;
   private squash: Function;
 
+  private pdError_Out_Sum: number = 0;
   private signalErrorSum: number = 0;
+  private adjustment = 0;
+  private adjustmentModifier = 0;
   private bias: number = 1;
   private netInput: number = 0;
   private output: number = 0;
 
-  private adjustment: number = 0;
-  private adjustmentModifier: number = 0;
   private delta: number = 0;
 
   private connectionsForward = new Array<Connection>();
@@ -74,57 +75,100 @@ class Node {
       });
     }
   }
-
+  
+  /**
+   * let ⱼ = current neuron; ᵢ = prev neuron; ᵗ = current pass; 
+   * let η = learning rate; μ = momentum
+   * let W = weight; B = Bias
+   * 
+   * ∂Error/∂Wᵢⱼ = ∂Error/∂Output * ∂Output/∂Net * ∂Net/∂Wᵢⱼ
+   * -> ∂Error/∂Output = (Outputⱼ - idealⱼ)
+   * -> ∂Output/∂Net = φ'(netⱼ)
+   * -> ∂Net/∂Wᵢⱼ = Outputᵢ
+   * --> ∂Error/∂Net = ∂Error/∂Output * ∂Output/∂Net
+   * --------------------------------------------------------------
+   * ∂Error/∂B = ∂Error/∂Output * ∂Output/∂Net * (∂Net/∂B == 1)
+   * 
+   * ΔWᵢⱼ = (ΔWᵢⱼᵗ⁻¹ * μ) + (-η * ∂Error/∂W)
+   * ΔBⱼ = (ΔBⱼᵗ⁻¹ * μ) + (-η * ∂Error/∂B)
+   */
   propagateOutput(ideal) {
-    // calculate signal error (partial derivative of activation with respect to net input)
-    const signalError = this.squash(this.netInput, true) * (this.output - ideal);
+    // calculate partial derivatives
+    const pdError_Output = (this.output - ideal);
+    const pdOutput_Net = this.squash(this.netInput, true);
+    const pdError_Net = pdOutput_Net * pdError_Output;
 
-    // set bias delta and modifier
-    this.adjustment = -this.config.learningRate * signalError * this.squash(this.netInput, true);
-    this.adjustmentModifier = this.adjustment * this.config.momentum;
+    // calculate bias derivative and set bias delta
+    const pdError_Bias = pdError_Net * pdOutput_Net;
+    //this.delta = this.delta * this.config.momentum;
+    this.delta = -this.config.learningRate * pdError_Bias;
+
 
     _.each(this.connectionsBackward, connection => {
-      // set weight delta and modifier
-      connection.adjustment = connection.delta = -this.config.learningRate * signalError * connection.from.output;
-      if(this.adjustment != 0)
-        connection.adjustmentModifier = connection.adjustment * this.config.momentum;
+      // calculate weight derivative and set weight delta
+      const pdNet_Weight = connection.from.output;
+      connection.delta = connection.delta * this.config.momentum;
+      connection.delta += -this.config.learningRate * pdError_Net * pdNet_Weight;
 
       // propagate backwards
-      connection.from.propagateHidden(signalError * connection.weight);
+      connection.from.propagateHidden(pdError_Net * connection.weight);
     });
   }
 
-  propagateHidden(signalError) {
+  /**
+   * let ⱼ = current neuron; ᵢ = prev neuron; ₖ = next neuron; ᵗ = current pass; 
+   * let η = learning rate; μ = momentum
+   * let W = weight; B = Bias
+   * 
+   * ∂Error/∂Wᵢⱼ = ∂Error/∂Output * ∂Output/∂Net * ∂Net/∂Wᵢⱼ
+   * -> ∂Error/∂Output = Σₖ [∂Outputₖ/∂Netₖ * Wⱼₖ]
+   * -> ∂Output/∂Net = φ'(netⱼ)
+   * -> ∂Net/∂Wᵢⱼ = Outputᵢ
+   * --> ∂Error/∂Net = ∂Error/∂Output * ∂Output/∂Net
+   * --------------------------------------------------------------
+   * ∂Error/∂B = ∂Error/∂Output * ∂Output/∂Net * (∂Net/∂B == 1)
+   * 
+   * ΔWᵢⱼ = (ΔWᵢⱼᵗ⁻¹ * μ) + (-η * ∂Error/∂W)
+   * ΔBⱼ = (ΔBⱼᵗ⁻¹ * μ) + (-η * ∂Error/∂B)
+   */
+  propagateHidden(pdError_Out_Connected) {
     // sum up incoming signal error for later use
-    this.signalErrorSum += signalError;
+    this.pdError_Out_Sum += pdError_Out_Connected;
 
     // note: input nodes won't ever hit this condition as is intended
     if (++this.propagations == this.connectForward.length) {
       // all incoming connections have fired (reset counter)
       this.propagations = 0;
 
-      // set bias delta and modifier
-      this.adjustment = -this.config.learningRate * this.signalErrorSum * this.squash(this.netInput, true);
-      if(this.adjustment != 0)
-        this.adjustmentModifier = this.adjustment * this.config.momentum;
+      // calculate partial derivatives
+      const pdOutput_Net = this.squash(this.netInput, true);
+      const pdError_Net = pdOutput_Net * this.pdError_Out_Sum;
 
-      // calculate signal error (partial derivative of activation with respect to net input)
-      const signalError = this.squash(this.netInput, true) * this.signalErrorSum;
+      // calculate bias derivative and set bias delta
+      const pdError_Bias = pdError_Net * pdOutput_Net;
+      //this.delta = this.delta * this.config.momentum;
+      this.delta = -this.config.learningRate * pdError_Bias;
+
       _.each(this.connectionsBackward, connection => {
-        // set weight delta and modifier
-        connection.adjustment = connection.delta = -this.config.learningRate * signalError * connection.from.output;
-        connection.adjustmentModifier = connection.adjustment * this.config.momentum;
+        // calculate weight derivative and set weight delta
+        const pdNet_Weight = connection.from.output;
+        connection.delta = connection.delta * this.config.momentum;
+        connection.delta += -this.config.learningRate * pdError_Net * pdNet_Weight;
 
         // propagate backwards
-        connection.from.propagateHidden(signalError);
+        connection.from.propagateHidden(pdError_Net);
       })
     }
   }
 
   adjust() {
-    this.bias += this.adjustment + this.adjustmentModifier;
-    this.adjustment = 0;
-    this.signalErrorSum = 0;
+    if(this.getType() != NODE_TYPE.input) {
+      //this.bias += this.adjustment < 0 ? 0 : this.adjustment;
+      this.bias += this.delta;
+      this.delta = 0;
+    }
+
+    this.pdError_Out_Sum = 0;
   }
 
   getId() { return this.id; }

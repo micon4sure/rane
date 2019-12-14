@@ -7,9 +7,7 @@ class Connection {
   public weight: number;
   public innovation: number;
 
-  public adjustment: number = 0;
-  public adjustmentModifier: number = 0;
-  public delta: number;
+  public delta: number = 0;
 
   constructor(from: Node, to: Node, weight:number, innovation: number) {
     this.from = from;
@@ -19,8 +17,8 @@ class Connection {
   }
 
   adjust() {
-    this.weight += this.adjustment + this.adjustmentModifier;
-    this.adjustment = 0;
+    //this.weight += this.adjustment < 0 ? 0 : this.adjustment;
+    this.weight += this.delta;
   }
 
   toJSON() {
@@ -29,7 +27,7 @@ class Connection {
       from: this.from.getId(),
       to: this.to.getId(),
       weight: this.weight,
-      adjustment: this.adjustment,
+      adjustment: this.delta,
       delta: this.delta,
       enabled: true
     }

@@ -39,10 +39,10 @@ class Node {
     this.config = config;
   }
 
-  connectForward(connection: Connection) {
+  addConnectionForward(connection: Connection) {
     this.connectionsForward.push(connection);
   }
-  connectBackward(connection: Connection) {
+  addConnectionBackward(connection: Connection) {
     this.connectionsBackward.push(connection);
   }
 
@@ -75,7 +75,7 @@ class Node {
       });
     }
   }
-  
+
   /**
    * let ⱼ = current neuron; ᵢ = prev neuron; ᵗ = current pass; 
    * let η = learning rate; μ = momentum
@@ -100,15 +100,20 @@ class Node {
 
     // calculate bias derivative and set bias delta
     const pdError_Bias = pdError_Net * pdOutput_Net;
-    //this.delta = this.delta * this.config.momentum;
-    this.delta = -this.config.learningRate * pdError_Bias;
+    this.delta = Math.sign(this.delta) == Math.sign(pdError_Bias)
+      ? this.delta * this.config.momentum
+      : 0;
+    this.delta += -this.config.learningRate * pdError_Bias;
 
 
     _.each(this.connectionsBackward, connection => {
       // calculate weight derivative and set weight delta
       const pdNet_Weight = connection.from.output;
-      connection.delta = connection.delta * this.config.momentum;
-      connection.delta += -this.config.learningRate * pdError_Net * pdNet_Weight;
+      const pdError_Weight = pdError_Net * pdNet_Weight;
+      connection.delta = Math.sign(connection.delta) == Math.sign(pdError_Weight)
+        ? connection.delta * this.config.momentum
+        : 0;
+      connection.delta += -this.config.learningRate * pdError_Weight;
 
       // propagate backwards
       connection.from.propagateHidden(pdError_Net * connection.weight);
@@ -136,7 +141,7 @@ class Node {
     this.pdError_Out_Sum += pdError_Out_Connected;
 
     // note: input nodes won't ever hit this condition as is intended
-    if (++this.propagations == this.connectForward.length) {
+    if (++this.propagations == this.connectionsForward.length) {
       // all incoming connections have fired (reset counter)
       this.propagations = 0;
 
@@ -146,14 +151,19 @@ class Node {
 
       // calculate bias derivative and set bias delta
       const pdError_Bias = pdError_Net * pdOutput_Net;
-      //this.delta = this.delta * this.config.momentum;
-      this.delta = -this.config.learningRate * pdError_Bias;
+      this.delta = Math.sign(this.delta) == Math.sign(pdError_Bias)
+        ? this.delta * this.config.momentum
+        : 0;
+      this.delta += -this.config.learningRate * pdError_Bias;
 
       _.each(this.connectionsBackward, connection => {
         // calculate weight derivative and set weight delta
         const pdNet_Weight = connection.from.output;
-        connection.delta = connection.delta * this.config.momentum;
-        connection.delta += -this.config.learningRate * pdError_Net * pdNet_Weight;
+        const pdError_Weight = pdError_Net * pdNet_Weight
+        connection.delta = Math.sign(connection.delta) == Math.sign(pdError_Weight) 
+          ? connection.delta * this.config.momentum
+          : 0;
+        connection.delta += -this.config.learningRate * pdError_Weight;
 
         // propagate backwards
         connection.from.propagateHidden(pdError_Net);
@@ -162,7 +172,7 @@ class Node {
   }
 
   adjust() {
-    if(this.getType() != NODE_TYPE.input) {
+    if (this.getType() != NODE_TYPE.input) {
       //this.bias += this.adjustment < 0 ? 0 : this.adjustment;
       this.bias += this.delta;
       this.delta = 0;

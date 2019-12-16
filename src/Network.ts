@@ -65,8 +65,8 @@ class Network {
       }
       const connection = new Connection(fromNode, toNode, gene.weight, gene.innovation);
       this.connections.push(connection);
-      fromNode.connectForward(connection);
-      toNode.connectBackward(connection);
+      fromNode.addConnectionForward(connection);
+      toNode.addConnectionBackward(connection);
     });
   }
 
